@@ -7,10 +7,16 @@
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/P3TERX/Aria2-Pro-Core/Aria2%20Builder?label=Actions&logo=github&style=flat-square)
 
 Aria2 static binaries for GNU/Linux with some powerful feature patches.
+The original Autotools build remains available, and the repository also
+provides a CMake build path for [aria2-next](https://github.com/AnInsomniacy/aria2-next) —
+a maintained aria2 fork with extensive bug fixes, ED2K support, and modernized
+architecture.
 
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/P3TERX/Aria2-Pro-Core?style=for-the-badge)](https://github.com/P3TERX/Aria2-Pro-Core/releases/latest)
 
 ## Changes
+
+### aria2 (upstream)
 
 * option `max-connection-per-server`: change maximum value to `∞`
 * option `min-split-size`: change minimum value to `1K`
@@ -21,6 +27,18 @@ Aria2 static binaries for GNU/Linux with some powerful feature patches.
 * download: add option `retry-on-406` to retry on http 406 not acceptable, which only effective if `retry-wait` > 0
 * download: add option `retry-on-unknown` to retry on unknown status code, which only effective if `retry-wait` > 0
 * http: add option `http-want-digest` to choose whether to send the generated `Want-Digest` HTTP header or not (Not send by default)
+
+### aria2-next
+
+aria2-next is a maintained fork of aria2 with a modern CMake build system,
+extensive bug fixes, and native ED2K/eMule support. The same feature patches
+are applied to aria2-next via `patch/aria2-next/`:
+
+* `0001` — unlock connection-per-server limit, lower min-split-size, disable Want-Digest by default
+* `0002` — retry on slow speed and connection close
+* `0003` — retry on HTTP 400/403/406/unknown status codes
+* `0004` — lower piece-length minimum to 1 KiB
+* `0005` — CMake: filter implicit `-R` rpath flags from pkg-config imported targets
 
 ## Installing
 
@@ -43,43 +61,77 @@ sudo rm -f /usr/local/bin/aria2c
 
 ## Building
 
-### with script
+### aria2 (autotools, dynamic)
 
-Download script, execute script.
-> **TIPS:** In today's containerization of everything, this is not recommended.
-```shell
-git clone https://github.com/P3TERX/Aria2-Pro-Core
-cd Aria2-Pro-Core
-bash aria2-gnu-linux-build.sh
-```
+Build the upstream aria2 with Autotools. Output is a dynamically linked
+`aria2c` binary.
 
-### with docker
-
-> **TIPS:** Docker minimum version 19.03, you can also use [buildx](https://github.com/docker/buildx).
-
-Build Aria2 for current architecture platforms.
 ```shell
 DOCKER_BUILDKIT=1 docker build \
     -o type=local,dest=. \
     github.com/P3TERX/Aria2-Pro-Core
 ```
 
-**`dest`** can define the output directory. If there are no changes, there will be an archive file in the current directory when the build is completed.
-```
-$ ls -l 
--rw-r--r-- 1 p3terx p3terx 3744106 Jan 17 20:24 aria2-1.35.0-static-linux-amd64.tar.gz
-```
-
-Cross build Aria2 for other platforms, e.g.:
-```
+Cross build for other platforms, e.g.:
+```shell
 DOCKER_BUILDKIT=1 docker build \
     --build-arg BUILDER_IMAGE=ubuntu:14.04 \
     --build-arg BUILD_SCRIPT=aria2-gnu-linux-cross-build-armhf.sh \
     -o type=local,dest=. \
     github.com/P3TERX/Aria2-Pro-Core
 ```
-> **`BUILDER_IMAGE`** variable defines the system image used for the build. In general, platforms other than `armhf` don't require it.
-> **`BUILD_SCRIPT`** variable defines the script used for the cross build.
+
+### aria2-next (CMake, dynamic)
+
+Build aria2-next with CMake and dynamically linked OpenSSL/glibc.
+Output is a PIE executable, approximately 6 MB.
+
+```shell
+DOCKER_BUILDKIT=1 docker build \
+    --build-arg BUILDER_IMAGE=ubuntu:24.04 \
+    --build-arg BUILD_SCRIPT=aria2-next-gnu-linux-build.sh \
+    -o type=local,dest=. \
+    .
+```
+
+The source and ref can be overridden without changing the script:
+```shell
+DOCKER_BUILDKIT=1 docker build \
+    --build-arg BUILDER_IMAGE=ubuntu:24.04 \
+    --build-arg BUILD_SCRIPT=aria2-next-gnu-linux-build.sh \
+    --build-arg ARIA2_REPOSITORY=https://github.com/AnInsomniacy/aria2-next.git \
+    --build-arg ARIA2_REF=main \
+    -o type=local,dest=. \
+    .
+```
+
+### aria2-next (CMake, static)
+
+Build aria2-next with CMake and fully static linking (glibc, OpenSSL, etc.).
+Output is a statically linked executable, approximately 14 MB.
+
+```shell
+DOCKER_BUILDKIT=1 docker build \
+    --build-arg BUILDER_IMAGE=ubuntu:24.04 \
+    --build-arg BUILD_SCRIPT=aria2-next-gnu-linux-build.sh \
+    --build-arg ARIA2_BUILD_SYSTEM=cmake \
+    --build-arg ARIA2_REPOSITORY=https://github.com/AnInsomniacy/aria2-next.git \
+    --build-arg ARIA2_REF=main \
+    -o type=local,dest=. \
+    .
+```
+
+The output binary is fully static and can be verified with `file`:
+```text
+ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically linked
+```
+
+For a local checkout, mount the source and set `ARIA2_SOURCE_DIR`:
+```shell
+docker run --rm -v /path/to/aria2-next:/src:ro \
+    -e ARIA2_SOURCE_DIR=/src \
+    ...
+```
 
 ## External links
 
@@ -88,6 +140,11 @@ DOCKER_BUILDKIT=1 docker build \
 * [Aria2 homepage](https://aria2.github.io/)
 * [Aria2 documentation](https://aria2.github.io/manual/en/html/)
 * [Aria2 source code (Github)](https://github.com/aria2/aria2)
+
+### aria2-next
+
+* [aria2-next source code (GitHub)](https://github.com/AnInsomniacy/aria2-next)
+* [aria2-next releases](https://github.com/AnInsomniacy/aria2-next/releases)
 
 ### Used external libraries
 

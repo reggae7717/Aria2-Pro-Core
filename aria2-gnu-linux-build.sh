@@ -19,15 +19,31 @@ SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 ## CONFIG ##
 ARCH="$(uname -m)"
-OPENSSL_ARCH="linux-elf"
+case "$ARCH" in
+    x86_64)
+        OPENSSL_ARCH="linux-x86_64"
+        ;;
+    aarch64)
+        OPENSSL_ARCH="linux-aarch64"
+        ;;
+    armv7l | armv8l)
+        OPENSSL_ARCH="linux-generic32"
+        ;;
+    i386)
+        OPENSSL_ARCH="linux-x86"
+        ;;
+    *)
+        OPENSSL_ARCH="linux-elf"
+        ;;
+esac
 BUILD_DIR="/tmp"
 ARIA2_CODE_DIR="$BUILD_DIR/aria2"
 OUTPUT_DIR="$HOME/output"
 PREFIX="$BUILD_DIR/aria2-build-libs"
 ARIA2_PREFIX="/usr/local"
 export CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
-export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-export LD_LIBRARY_PATH="$PREFIX/lib"
+export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:$PREFIX/lib64/pkgconfig"
+export LD_LIBRARY_PATH="$PREFIX/lib:$PREFIX/lib64"
 export CC="gcc"
 export CXX="g++"
 export STRIP="strip"

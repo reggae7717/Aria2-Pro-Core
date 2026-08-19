@@ -50,7 +50,8 @@ OPENSSL_BUILD() {
     ./Configure \
         --prefix=$PREFIX \
         $OPENSSL_ARCH \
-        no-tests
+        no-tests \
+        no-shared
     make -j$(nproc)
     make install_sw
 }
@@ -61,20 +62,22 @@ SQLITE3_BUILD() {
     ./configure \
         --prefix=$PREFIX \
         --enable-static \
-        --disable-shared \
-        --disable-dynamic-extensions
+        --disable-shared
     make -j$(nproc)
     make install
 }
 
 LIBSSH2_BUILD() {
     mkdir -p $BUILD_DIR/libssh2 && cd $BUILD_DIR/libssh2
-    curl -Ls -o - "$LIBSSH2" | tar zxvf - --strip-components=1
+    curl -Ls -o - "$LIBSSH2" | tar jxvf - --strip-components=1
+    CPPFLAGS="-I$PREFIX/include ${CPPFLAGS:-}" \
+    LDFLAGS="-L$PREFIX/lib -L$PREFIX/lib64 ${LDFLAGS:-}" \
     ./configure \
         --prefix=$PREFIX \
         --enable-static \
         --disable-shared \
-        --disable-examples-build
+        --disable-examples-build \
+        --with-crypto=openssl
     make -j$(nproc)
     make install
 }
@@ -94,6 +97,10 @@ JEMALLOC_BUILD() {
 
 ARIA2_BUILD() {
     ARIA2_CODE_GET
+    if [ "${ARIA2_BUILD_SYSTEM:-autotools}" = "cmake" ]; then
+        ARIA2_CMAKE_BUILD
+        return
+    fi
     ./configure \
         --prefix=${ARIA2_PREFIX:-'/usr/loacl'} \
         --with-libz \
@@ -112,4 +119,49 @@ ARIA2_BUILD() {
         ARIA2_STATIC=yes \
         --disable-shared
     make -j$(nproc)
+}
+
+ARIA2_CMAKE_BUILD() {
+    local generator="${ARIA2_CMAKE_GENERATOR:-}"
+    local jobs="${JOBS:-$(nproc)}"
+    local build_type="${ARIA2_CMAKE_BUILD_TYPE:-Release}"
+    local build_dir="${ARIA2_CMAKE_BUILD_DIR:-$ARIA2_CODE_DIR/build/core}"
+    local pkg_config_path="$PREFIX/lib/pkgconfig:$PREFIX/lib64/pkgconfig"
+    local cmake_args=(
+        -S "$ARIA2_CODE_DIR"
+        -B "$build_dir"
+        -D "CMAKE_BUILD_TYPE=$build_type"
+        -D "CMAKE_INSTALL_PREFIX=${ARIA2_PREFIX:-/usr/local}"
+        -D CMAKE_SKIP_RPATH=ON
+        -D "CMAKE_PREFIX_PATH=$PREFIX"
+        -D ARIA2_STATIC_DEPENDENCIES=ON
+        -D "CMAKE_EXE_LINKER_FLAGS=-static -L$PREFIX/lib -L$PREFIX/lib64"
+        -D "CMAKE_FIND_LIBRARY_SUFFIXES=.a"
+        -D ARIA2_ENABLE_SSL=ON
+        -D ARIA2_ENABLE_BITTORRENT=ON
+        -D ARIA2_ENABLE_METALINK=ON
+        -D ARIA2_ENABLE_WEBSOCKET=ON
+        -D ARIA2_WITH_OPENSSL=ON
+        -D ARIA2_WITH_EXPAT=ON
+        -D ARIA2_WITH_CARES=ON
+        -D ARIA2_WITH_SQLITE3=ON
+        -D ARIA2_WITH_LIBSSH2=ON
+    )
+
+    if [ -z "$generator" ]; then
+        if command -v ninja >/dev/null 2>&1; then
+            generator="Ninja"
+        elif command -v samu >/dev/null 2>&1; then
+            generator="Samurai"
+        else
+            generator="Unix Makefiles"
+        fi
+    fi
+    cmake_args+=( -G "$generator" )
+
+    PKG_CONFIG_PATH="$pkg_config_path${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" \
+        cmake "${cmake_args[@]}"
+    cmake --build "$build_dir" --target aria2-next --parallel "$jobs"
+    ARIA2_BINARY_PATH="$build_dir/aria2-next"
+    test -x "$ARIA2_BINARY_PATH"
 }

@@ -9,17 +9,17 @@
 #
 
 ARIA2_GIT_CODE() {
-    if [[ -d $ARIA2_CODE_DIR && -d $ARIA2_CODE_DIR/.git ]]; then
-        cd $ARIA2_CODE_DIR
-        git checkout master || git checkout HEAD
-        git reset --hard origin || git reset --hard
-        git pull
+    if [ -n "${ARIA2_SOURCE_DIR:-}" ]; then
+        rm -rf "$ARIA2_CODE_DIR"
+        mkdir -p "$ARIA2_CODE_DIR"
+        cp -a "$ARIA2_SOURCE_DIR"/. "$ARIA2_CODE_DIR"/
+    elif [[ -d $ARIA2_CODE_DIR && -d $ARIA2_CODE_DIR/.git ]]; then
+        git -C "$ARIA2_CODE_DIR" fetch --force --depth=1 origin "$ARIA2_REF"
+        git -C "$ARIA2_CODE_DIR" checkout --detach FETCH_HEAD
     else
         rm -rf $ARIA2_CODE_DIR
-        git clone https://github.com/aria2/aria2 $ARIA2_CODE_DIR
-        cd $ARIA2_CODE_DIR
+        git clone --depth=1 --branch "$ARIA2_REF" "$ARIA2_REPOSITORY" "$ARIA2_CODE_DIR"
     fi
-    autoreconf -fi || autoreconf -fiv
 }
 
 ARIA2_RELEASE_CODE() {
@@ -30,11 +30,30 @@ ARIA2_RELEASE_CODE() {
 }
 
 ARIA2_PATCH() {
-    git apply $SCRIPT_DIR/patch/*.patch
+    local patch_dir
+    if [ -n "${ARIA2_PATCH_DIR:-}" ]; then
+        patch_dir="$ARIA2_PATCH_DIR"
+    elif [ "${ARIA2_BUILD_SYSTEM:-autotools}" = "cmake" ]; then
+        patch_dir="$SCRIPT_DIR/patch/aria2-next"
+    else
+        patch_dir="$SCRIPT_DIR/patch"
+    fi
+
+    local patches=("$patch_dir"/*.patch)
+    if [ -e "${patches[0]}" ]; then
+        git -C "$ARIA2_CODE_DIR" apply --check "${patches[@]}"
+        git -C "$ARIA2_CODE_DIR" apply "${patches[@]}"
+    fi
 }
 
 ARIA2_CODE_GET() {
-    #ARIA2_RELEASE_CODE
+    ARIA2_REPOSITORY="${ARIA2_REPOSITORY:-https://github.com/aria2/aria2.git}"
+    ARIA2_REF="${ARIA2_REF:-master}"
+    ARIA2_BUILD_SYSTEM="${ARIA2_BUILD_SYSTEM:-autotools}"
     ARIA2_GIT_CODE
     ARIA2_PATCH
+    if [ "$ARIA2_BUILD_SYSTEM" != "cmake" ]; then
+        cd "$ARIA2_CODE_DIR"
+        autoreconf -fi || autoreconf -fiv
+    fi
 }

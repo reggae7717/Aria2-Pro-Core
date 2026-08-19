@@ -1,0 +1,33 @@
+diff --git a/cmake/modules/Options.cmake b/cmake/modules/Options.cmake
+--- a/cmake/modules/Options.cmake
++++ b/cmake/modules/Options.cmake
+@@ -56,9 +56,21 @@
+   check_cxx_source_compiles("${source}" "${variable}")
+ endfunction()
+ 
++function(aria2_sanitize_pkg_target module)
++  if(TARGET PkgConfig::${module})
++    get_target_property(_link_options PkgConfig::${module} INTERFACE_LINK_OPTIONS)
++    if(_link_options)
++      list(FILTER _link_options EXCLUDE REGEX "^-R")
++      set_property(TARGET PkgConfig::${module} PROPERTY
++        INTERFACE_LINK_OPTIONS "${_link_options}")
++    endif()
++  endif()
++endfunction()
++
+ function(aria2_pkg_check module pkg)
+   if(PkgConfig_FOUND)
+     pkg_check_modules(${module} IMPORTED_TARGET ${pkg})
++    aria2_sanitize_pkg_target(${module})
+   endif()
+ endfunction()
+ 
+@@ -67,6 +79,7 @@
+     set(_saved_pkg_config_argn "${PKG_CONFIG_ARGN}")
+     set(PKG_CONFIG_ARGN)
+     pkg_check_modules(${module} IMPORTED_TARGET ${pkg})
++    aria2_sanitize_pkg_target(${module})
+     set(PKG_CONFIG_ARGN "${_saved_pkg_config_argn}")
+   endif()
+ endfunction()

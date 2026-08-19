@@ -9,20 +9,31 @@
 #
 
 ARIA2_BIN() {
-    cd $ARIA2_CODE_DIR/src
-    $STRIP aria2c
+    local binary_name="${ARIA2_BINARY:-aria2c}"
+    local binary_path="${ARIA2_BINARY_PATH:-$ARIA2_CODE_DIR/src/$binary_name}"
+    $STRIP "$binary_path"
     mkdir -p $OUTPUT_DIR
-    cp aria2c $OUTPUT_DIR
+    cp "$binary_path" "$OUTPUT_DIR/$binary_name"
 }
 
 ARIA2_PACKAGE() {
-    cd $ARIA2_CODE_DIR/src
-    $STRIP aria2c
+    local binary_name="${ARIA2_BINARY:-aria2c}"
+    local binary_path="${ARIA2_BINARY_PATH:-$ARIA2_CODE_DIR/src/$binary_name}"
+    local binary_dir
+    binary_dir=$(dirname "$binary_path")
+    $STRIP "$binary_path"
     mkdir -p $OUTPUT_DIR
-    tar zcvf $OUTPUT_DIR/aria2-static-linux-$ARCH.tar.gz aria2c
+    cp "$binary_path" "$OUTPUT_DIR/$binary_name"
+    tar -C "$binary_dir" -zcvf \
+        "$OUTPUT_DIR/${ARIA2_PACKAGE_FILE:-$binary_name-static-linux-$ARCH.tar.gz}" \
+        "$binary_name"
 }
 
 ARIA2_INSTALL() {
-    cd $ARIA2_CODE_DIR
-    make install-strip
+    if [ "${ARIA2_BUILD_SYSTEM:-autotools}" = "cmake" ]; then
+        cmake --install "${ARIA2_CMAKE_BUILD_DIR:-$ARIA2_CODE_DIR/build/core}"
+    else
+        cd $ARIA2_CODE_DIR
+        make install-strip
+    fi
 }
