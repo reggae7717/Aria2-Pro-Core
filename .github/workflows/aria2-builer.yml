@@ -66,6 +66,8 @@ jobs:
         path: output
 
     - name: Functional Testing
+      env:
+        SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
       run: |
         ./${{ matrix.BINARY_NAME }} https://raw.githubusercontent.com/P3TERX/aria2.conf/master/dht.dat
         ./${{ matrix.BINARY_NAME }} https://raw.githubusercontent.com/P3TERX/aria2.conf/master/dht6.dat
