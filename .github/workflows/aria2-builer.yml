@@ -20,28 +20,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        PLATFORMS: [amd64, arm64, armhf, i386]
+        PLATFORMS: [next-amd64]
         include:
-        - PLATFORMS: amd64
-          BUILDER_IMAGE: debian:11
-          BUILD_SCRIPT: aria2-gnu-linux-build-amd64.sh
-          BINARY_NAME: aria2c
-        - PLATFORMS: arm64
-          BUILDER_IMAGE: debian:11
-          BUILD_SCRIPT: aria2-gnu-linux-cross-build-arm64.sh
-          BINARY_NAME: aria2c
-        - PLATFORMS: armhf
-          BUILDER_IMAGE: ubuntu:16.04
-          BUILD_SCRIPT: aria2-gnu-linux-cross-build-armhf.sh
-          BINARY_NAME: aria2c
-        - PLATFORMS: i386
-          BUILDER_IMAGE: debian:10
-          BUILD_SCRIPT: aria2-gnu-linux-cross-build-i386.sh
-          BINARY_NAME: aria2c
         - PLATFORMS: next-amd64
           BUILDER_IMAGE: ubuntu:24.04
           BUILD_SCRIPT: aria2-next-gnu-linux-build.sh
@@ -49,11 +33,8 @@ jobs:
 
     steps:
 
-    - name: Install QEMU
-      run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Build
       env:
@@ -70,7 +51,7 @@ jobs:
 
     - name: Output Error Log
       if: (!cancelled())
-      run: grep -iE 'fatal|error|critical|failure|warning' build.log
+      run: grep -iE 'fatal|error|critical|failure|warning' build.log || true
 
     - name: Check Version
       run: |
@@ -79,7 +60,7 @@ jobs:
         ./${{ matrix.BINARY_NAME }} -v 2>&1 | tee ./output/version-${{ matrix.PLATFORMS }}.txt
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: aria2-${{ matrix.PLATFORMS }}
         path: output
